@@ -10,12 +10,12 @@ type DeliveredMessage struct {
 	message Message
 }
 
-type broadcaster struct{}
+// type tobBroadcaster struct{}
 
-func (b *broadcaster) Broadcast(message Message) error {
+// func (b *tobBroadcaster) Broadcast(message Message) error {
 
-}
+// }
 
-func (b *broadcaster) Deliver() <-chan DeliveredMessage {
+// func (b *tobBroadcaster) Deliver() <-chan DeliveredMessage {
 
-}
+// }

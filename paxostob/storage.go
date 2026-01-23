@@ -6,12 +6,12 @@ type Storage interface {
 }
 
 // todo: Inmemory implementation
-type Inmemory struct{}
+// type Inmemory struct{}
 
-func (i *Inmemory) Get(msg Message) error {
+// func (i *Inmemory) Get(msg Message) error {
 
-}
+// }
 
-func (i *Inmemory) Put(msg Message) error {
+// func (i *Inmemory) Put(msg Message) error {
 
-}
+// }
