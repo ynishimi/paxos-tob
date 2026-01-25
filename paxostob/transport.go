@@ -20,7 +20,7 @@ type InmemoryTransport struct {
 }
 
 // creates an instance of InmemoryTransport
-func NewTransport(addr string) *InmemoryTransport {
+func NewInmemTransport(addr string) *InmemoryTransport {
 	return &InmemoryTransport{
 		addr:            addr,
 		incomingMsgChan: make(chan Message, 10),
@@ -57,6 +57,9 @@ func (t *InmemoryTransport) Broadcast(message Message) error {
 	for _, destTransport := range t.peers {
 		destTransport.incomingMsgChan <- message
 	}
+
+	// send to yourself
+	t.incomingMsgChan <- message
 
 	return nil
 }

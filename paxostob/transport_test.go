@@ -9,10 +9,10 @@ import (
 	"github.com/ynishimi/paxos-tob/paxostob"
 )
 
-func TestInmemoryTransportSingle(t *testing.T) {
+func TestInmemoryTransportSendSingle(t *testing.T) {
 
-	p1 := paxostob.NewTransport("peer1")
-	p2 := paxostob.NewTransport("peer2")
+	p1 := paxostob.NewInmemTransport("peer1")
+	p2 := paxostob.NewInmemTransport("peer2")
 
 	// let them know each other
 	p1.AddPeer(p2)
@@ -30,10 +30,10 @@ func TestInmemoryTransportSingle(t *testing.T) {
 	}
 }
 
-func TestInmemoryTransport(t *testing.T) {
+func TestInmemoryTransportSend(t *testing.T) {
 
-	p1 := paxostob.NewTransport("peer1")
-	p2 := paxostob.NewTransport("peer2")
+	p1 := paxostob.NewInmemTransport("peer1")
+	p2 := paxostob.NewInmemTransport("peer2")
 
 	// let them know each other
 	p1.AddPeer(p2)
@@ -66,3 +66,6 @@ func TestInmemoryTransport(t *testing.T) {
 		t.Error("msgs list not equal")
 	}
 }
+
+// todo: broadcast
+func TestInmemoryTransportBroadcast(t *testing.T) {}

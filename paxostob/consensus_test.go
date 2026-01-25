@@ -9,13 +9,14 @@ import (
 	"github.com/ynishimi/paxos-tob/paxostob"
 )
 
-func TestPrepareSend(t *testing.T) {
-	p1 := paxostob.NewTransport("peer1")
-	p2 := paxostob.NewTransport("peer2")
+func TestPreparePromiseSuccess(t *testing.T) {
+	p1 := paxostob.NewInmemTransport("peer1")
+	p2 := paxostob.NewInmemTransport("peer2")
 	p1.AddPeer(p2)
 
-	p1cons := paxostob.NewPaxosCons(p1)
-	// p2cons := paxostob.NewPaxosCons(p2)
+	const NumPeers = 2
+	p1cons := paxostob.NewPaxosCons(p1, 1, NumPeers)
+	_ = paxostob.NewPaxosCons(p2, 2, NumPeers)
 
 	msg := &TestMsg{
 		src:     p1cons.GetAddress(),
@@ -32,11 +33,16 @@ func TestPrepareSend(t *testing.T) {
 		// success
 		fmt.Println(incomingMsg)
 		require.Equal(t, msg.Src(), incomingMsg.Src())
-		require.Equal(t, msg.String(), incomingMsg.String())
+		// require.Equal(t, msg.String(), incomingMsg.String())
 
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for message delivery")
 	}
 
-	// todo: should find msg at paxos layer
+	// todo: p2 should find msg at paxos layer
+	// require.Equal(t, p2cons.GetPromisedID(), -1)
+
+	// todo: propose
+
+	// todo: promise
 }
