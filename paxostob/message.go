@@ -1,6 +1,8 @@
 package paxostob
 
 type Message interface {
+	Src() string
+	Payload() string
 	String() string
 }
 

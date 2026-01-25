@@ -9,15 +9,6 @@ import (
 	"github.com/ynishimi/paxos-tob/paxostob"
 )
 
-type testMsg struct {
-	src     string
-	payload string
-}
-
-func (m *testMsg) String() string {
-	return fmt.Sprintf("%s: %s", m.src, m.payload)
-}
-
 func TestInmemoryTransportSingle(t *testing.T) {
 
 	p1 := paxostob.NewTransport("peer1")
@@ -27,7 +18,7 @@ func TestInmemoryTransportSingle(t *testing.T) {
 	p1.AddPeer(p2)
 
 	// p1 -> p2
-	p1.Send(p2.GetAddress(), &testMsg{p1.GetAddress(), "hi from peer1!"})
+	p1.Send(p2.GetAddress(), &TestMsg{p1.GetAddress(), "hi from peer1!"})
 
 	select {
 	case msg := <-p2.Deliver():
@@ -61,9 +52,9 @@ func TestInmemoryTransport(t *testing.T) {
 
 	// p1 -> p2
 	sendMsgs := []paxostob.Message{
-		&testMsg{p1.GetAddress(), "hi"},
-		&testMsg{p1.GetAddress(), "hi again"},
-		&testMsg{p1.GetAddress(), "hi again XD"},
+		&TestMsg{p1.GetAddress(), "hi"},
+		&TestMsg{p1.GetAddress(), "hi again"},
+		&TestMsg{p1.GetAddress(), "hi again XD"},
 	}
 
 	for _, sendMsg := range sendMsgs {

@@ -1,21 +1,21 @@
 package paxostob
 
-type tob interface {
+type TotalOrderBroadcast interface {
 	Broadcast(message Message) error
-	Deliver() <-chan DeliveredMessage
+	Deliver() <-chan DeliveredMsg
 }
 
-type DeliveredMessage struct {
+type DeliveredMsg struct {
 	src     string
-	message Message
+	payload string
 }
 
-// type tobBroadcaster struct{}
+// type TobBroadcaster struct{}
 
-// func (b *tobBroadcaster) Broadcast(message Message) error {
+// func (b *TobBroadcaster) Broadcast(message Message) error {
 
 // }
 
-// func (b *tobBroadcaster) Deliver() <-chan DeliveredMessage {
+// func (b *TobBroadcaster) Deliver() <-chan DeliveredMsg {
 
 // }
