@@ -15,8 +15,8 @@ func TestPreparePromiseSuccess(t *testing.T) {
 	p1.AddPeer(p2)
 
 	const NumPeers = 2
-	p1cons := paxostob.NewPaxosCons(p1, 1, NumPeers)
-	_ = paxostob.NewPaxosCons(p2, 2, NumPeers)
+	p1cons := paxostob.NewPaxos(p1, 1, NumPeers)
+	_ = paxostob.NewPaxos(p2, 2, NumPeers)
 
 	msg := &TestMsg{
 		src:     p1cons.GetAddress(),
