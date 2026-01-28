@@ -139,7 +139,7 @@ func (m *paxosMsg) Payload() string {
 }
 
 func (m *paxosMsg) String() string {
-	return fmt.Sprintf("%s[%v]: %s", m.src, m.msgID, m.value)
+	return fmt.Sprintf("%s[msgID:%v]: %s", m.src, m.msgID, m.value)
 }
 
 type prepareMsg struct {
@@ -204,6 +204,7 @@ func (paxos *Paxos) Prepare(msg Message) error {
 		},
 	}
 
+	log.Debug().Msgf("prepareMsg sent: %s", prepareMsg)
 	err := paxos.transport.Broadcast(prepareMsg)
 	return err
 }
@@ -214,7 +215,7 @@ func (paxos *Paxos) promise(prepareMsg *prepareMsg) error {
 	paxos.mu.Lock()
 	defer paxos.mu.Unlock()
 
-	src := prepareMsg.paxosMsg.src
+	dest := prepareMsg.paxosMsg.src
 
 	if prepareMsg.msgID > paxos.promisedID {
 		// newer prepare: make a promise
@@ -227,8 +228,10 @@ func (paxos *Paxos) promise(prepareMsg *prepareMsg) error {
 		// change src of msg
 		promiseMsg.paxosMsg.src = paxos.addr
 
+		log.Debug().Msgf("promiseMsg sent: %s -> %s", promiseMsg, dest)
+
 		// return promise w/ newest ID + accepted msg
-		return paxos.transport.Send(src, promiseMsg)
+		return paxos.transport.Send(dest, promiseMsg)
 
 	} else {
 		// older prepare: ignore
@@ -240,28 +243,33 @@ func (paxos *Paxos) promise(prepareMsg *prepareMsg) error {
 func (paxos *Paxos) handlePromise(msg *promiseMsg) {
 	paxos.mu.Lock()
 
+	log.Debug().Msgf("incoming promise: %s", msg)
+
 	// checks if msg is about current promise
 	if msg.msgID == paxos.curID {
 		paxos.promiseCounter++
 
 		// update acceptedValue
 		if msg.acceptedValue != nil {
-			if paxos.acceptedValue == nil && (msg.acceptedValue.acceptedID > paxos.acceptedValue.acceptedID) {
+			if paxos.acceptedValue == nil || (msg.acceptedValue.acceptedID > paxos.acceptedValue.acceptedID) {
 				paxos.proposingValue = msg.acceptedValue.value
 			}
 		}
 
 		if paxos.promiseCounter == paxos.PaxosThreshold {
-			log.Info().Msgf("Approved: %s", msg.String())
+			log.Info().Msgf("prepare approved: %s", msg)
+			paxos.mu.Unlock()
 			go func() {
 				if err := paxos.propose(); err != nil {
 					log.Error().Err(err).Msg("propose failed")
 				}
 			}()
+			return
 		}
 	} else {
 		log.Info().Msgf("not curID: %v", msg.msgID)
 	}
+	paxos.mu.Unlock()
 }
 
 func (paxos *Paxos) handleAccept(msg *acceptMsg) {
@@ -284,6 +292,9 @@ func (paxos *Paxos) handleAccept(msg *acceptMsg) {
 }
 
 func (paxos *Paxos) propose() error {
+	paxos.mu.RLock()
+	defer paxos.mu.RUnlock()
+
 	proposeMsg := &proposeMsg{
 		paxosMsg: paxosMsg{
 			src: paxos.addr,
@@ -293,6 +304,8 @@ func (paxos *Paxos) propose() error {
 			},
 		},
 	}
+
+	log.Debug().Msgf("proposeMsg broadcast: %s", proposeMsg)
 
 	return paxos.transport.Broadcast(proposeMsg)
 }
@@ -324,6 +337,9 @@ func (paxos *Paxos) accept(msg *proposeMsg) error {
 			},
 		},
 	}
+
+	log.Debug().Msgf("acceptMsg sent: %s", acceptMsg)
+
 	return paxos.transport.Broadcast(acceptMsg)
 }
 
@@ -334,7 +350,7 @@ func (paxos *Paxos) handleIncomingMsg() {
 		for {
 			select {
 			case incomingMsg := <-paxos.transport.Deliver():
-				log.Debug().Msgf("incoming msg: %s", incomingMsg)
+				log.Debug().Msgf("incoming msg[%T]: %s", incomingMsg, incomingMsg)
 				// todo: parse msg and call funcs (promise / accept)
 				switch v := incomingMsg.(type) {
 				case *prepareMsg:
@@ -350,7 +366,7 @@ func (paxos *Paxos) handleIncomingMsg() {
 					go paxos.accept(v)
 
 				case *acceptMsg:
-					// todo: everyone counts msg
+					// everyone counts msg
 					go paxos.handleAccept(v)
 				}
 

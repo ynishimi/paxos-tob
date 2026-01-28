@@ -21,11 +21,13 @@ type InmemoryTransport struct {
 
 // creates an instance of InmemoryTransport
 func NewInmemTransport(addr string) *InmemoryTransport {
-	return &InmemoryTransport{
+	t := &InmemoryTransport{
 		addr:            addr,
 		incomingMsgChan: make(chan Message, 10),
 		peers:           make(map[string]*InmemoryTransport),
 	}
+	t.peers[addr] = t
+	return t
 }
 
 func (t *InmemoryTransport) AddPeer(newPeer *InmemoryTransport) {
