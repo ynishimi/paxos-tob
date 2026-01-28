@@ -3,46 +3,48 @@ package paxostob_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/ynishimi/paxos-tob/paxostob"
 )
 
-func TestPreparePromiseSuccess(t *testing.T) {
+func TestConsensusSimple(t *testing.T) {
 	p1 := paxostob.NewInmemTransport("peer1")
 	p2 := paxostob.NewInmemTransport("peer2")
 	p1.AddPeer(p2)
+	p2.AddPeer(p1)
 
 	const NumPeers = 2
-	p1cons := paxostob.NewPaxos(p1, 1, NumPeers)
-	_ = paxostob.NewPaxos(p2, 2, NumPeers)
+
+	p1cons := paxostob.NewCons(p1, 1, NumPeers)
+	p2cons := paxostob.NewCons(p2, 2, NumPeers)
 
 	msg := &TestMsg{
 		src:     p1cons.GetAddress(),
-		payload: "prepare from peer1",
+		payload: "it's p1's proposal",
 	}
+
+	fmt.Println(msg)
 
 	// send prepare msg
-	err := p1cons.Prepare(msg)
-	require.NoError(t, err)
+	p1cons.Propose(msg)
 
-	// p2 should deliver at transport layer
-	select {
-	case incomingMsg := <-p2.Deliver():
-		// success
-		fmt.Println(incomingMsg)
-		require.Equal(t, msg.Src(), incomingMsg.Src())
-		// require.Equal(t, msg.String(), incomingMsg.String())
+	d1 := <-p1cons.Decide()
+	fmt.Println(d1)
+	d2 := <-p2cons.Decide()
+	fmt.Println(d2)
 
-	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for message delivery")
-	}
+	require.Equal(t, d1, d2)
 
-	// todo: p2 should find msg at paxos layer
-	// require.Equal(t, p2cons.GetPromisedID(), -1)
+	// // p2 should deliver at transport layer
+	// select {
+	// case incomingMsg := <-p2.Deliver():
+	// 	// success
+	// 	fmt.Println(incomingMsg)
+	// 	require.Equal(t, msg.Src(), incomingMsg.Src())
+	// 	// require.Equal(t, msg.String(), incomingMsg.String())
 
-	// todo: propose
-
-	// todo: promise
+	// case <-time.After(time.Second):
+	// 	t.Fatal("timeout waiting for message delivery")
+	// }
 }

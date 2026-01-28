@@ -68,4 +68,18 @@ func TestInmemoryTransportSend(t *testing.T) {
 }
 
 // todo: broadcast
-func TestInmemoryTransportBroadcast(t *testing.T) {}
+func TestInmemoryTransportBroadcastSingle(t *testing.T) {
+	p1 := paxostob.NewInmemTransport("peer1")
+	p2 := paxostob.NewInmemTransport("peer2")
+
+	// let them know each other
+	p1.AddPeer(p2)
+
+	// p1 -> p2
+	p1.Broadcast(&TestMsg{p1.GetAddress(), "hi from peer1!"})
+
+	p1DeliveredMsg := <-p1.Deliver()
+	fmt.Println(p1DeliveredMsg)
+	p2DeliveredMsg := <-p2.Deliver()
+	fmt.Println(p2DeliveredMsg)
+}

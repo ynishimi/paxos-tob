@@ -42,7 +42,7 @@ func (t *InmemoryTransport) Send(dest string, message Message) error {
 	t.mu.RUnlock()
 
 	if !ok {
-		return fmt.Errorf("peer no found")
+		return fmt.Errorf("peer not found")
 	}
 
 	destTransport.incomingMsgChan <- message

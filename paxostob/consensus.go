@@ -22,6 +22,10 @@ type Cons struct {
 	mu          sync.Mutex
 }
 
+func (cons *Cons) GetAddress() string {
+	return cons.paxos.addr
+}
+
 func NewCons(transport Transport, uID uint, numPeers uint) *Cons {
 	cons := &Cons{
 		decided:     false,
@@ -59,7 +63,9 @@ func (cons *Cons) Decide() <-chan string {
 	return cons.chosenValue
 }
 
-func (cons *Cons) Close() {}
+func (cons *Cons) Close() {
+	cons.paxos.Close()
+}
 
 // // Paxos consensus
 // type Paxos interface {
@@ -152,26 +158,28 @@ type acceptMsg struct {
 }
 
 func NewPaxos(transport Transport, uID uint, numPeers uint) *Paxos {
-	newCons := &Paxos{
-		transport:      transport,
-		addr:           transport.GetAddress(),
-		uID:            uID,
+	newPaxos := &Paxos{
+		transport: transport,
+		addr:      transport.GetAddress(),
+		uID:       uID,
+
 		numPeers:       numPeers,
 		PaxosThreshold: uint(numPeers/2 + 1),
+
 		curID:          uID,
+		proposingValue: "",
 		promiseCounter: 0,
-		promisedID:     0,
-		acceptedValue: &acceptedValue{
-			acceptedID: 0,
-			value:      "",
-		},
+
+		promisedID:    0,
+		acceptedValue: &acceptedValue{},
 
 		acceptCount: make(map[paxosValue]acceptInfo),
 		chosen:      make(chan paxosValue),
+		close:       make(chan struct{}),
 	}
-	newCons.handleIncomingMsg()
+	newPaxos.handleIncomingMsg()
 
-	return newCons
+	return newPaxos
 }
 
 func (paxos *Paxos) GetAddress() string {
@@ -220,7 +228,7 @@ func (paxos *Paxos) promise(prepareMsg *prepareMsg) error {
 		promiseMsg.paxosMsg.src = paxos.addr
 
 		// return promise w/ newest ID + accepted msg
-		return paxos.transport.Send(src, prepareMsg)
+		return paxos.transport.Send(src, promiseMsg)
 
 	} else {
 		// older prepare: ignore
@@ -231,20 +239,19 @@ func (paxos *Paxos) promise(prepareMsg *prepareMsg) error {
 
 func (paxos *Paxos) handlePromise(msg *promiseMsg) {
 	paxos.mu.Lock()
-	defer paxos.mu.Unlock()
 
 	// checks if msg is about current promise
 	if msg.msgID == paxos.curID {
 		paxos.promiseCounter++
 
 		// update acceptedValue
-		if msg.acceptedValue.acceptedID > paxos.acceptedValue.acceptedID {
-			// todo: maybe cons should have payload they are trying to propose
-			paxos.proposingValue = msg.acceptedValue.value
+		if msg.acceptedValue != nil {
+			if paxos.acceptedValue == nil && (msg.acceptedValue.acceptedID > paxos.acceptedValue.acceptedID) {
+				paxos.proposingValue = msg.acceptedValue.value
+			}
 		}
 
-		if paxos.promiseCounter > paxos.PaxosThreshold {
-			paxos.mu.Unlock()
+		if paxos.promiseCounter == paxos.PaxosThreshold {
 			log.Info().Msgf("Approved: %s", msg.String())
 			go func() {
 				if err := paxos.propose(); err != nil {
@@ -261,14 +268,12 @@ func (paxos *Paxos) handleAccept(msg *acceptMsg) {
 	paxos.mu.Lock()
 	defer paxos.mu.Unlock()
 
-	// todo: everyone counts number of acceptMsgs
-
-	// todo: counter
+	// everyone counts number of acceptMsgs
 	acceptInfo := paxos.acceptCount[msg.paxosValue]
 	acceptInfo.count++
 
 	// todo: choose the value of the ID (let's say the value is n), once [number of acceptMsgs with ID=n] >= [majority]
-	if acceptInfo.count >= paxos.PaxosThreshold {
+	if acceptInfo.count == paxos.PaxosThreshold {
 		if !acceptInfo.chosen {
 			acceptInfo.chosen = true
 			// send a chosen value to consensus layer
@@ -315,7 +320,7 @@ func (paxos *Paxos) accept(msg *proposeMsg) error {
 			src: paxos.addr,
 			paxosValue: paxosValue{
 				msgID: msg.msgID,
-				value: paxos.proposingValue,
+				value: msg.Payload(),
 			},
 		},
 	}
@@ -329,6 +334,7 @@ func (paxos *Paxos) handleIncomingMsg() {
 		for {
 			select {
 			case incomingMsg := <-paxos.transport.Deliver():
+				log.Debug().Msgf("incoming msg: %s", incomingMsg)
 				// todo: parse msg and call funcs (promise / accept)
 				switch v := incomingMsg.(type) {
 				case *prepareMsg:
