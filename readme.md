@@ -8,3 +8,20 @@ Paxos does not require a Best-Effort Broadcast(beb), which means that the algori
 While Paxos is similar to Raft, which is also used for replicating a state machine in a distributed environment, Paxos does not require a leader, making everyone in the distributed system propose its value.
 
 The algorithm of the library is based on a paper ["Paxos Made Simple"](https://lamport.azurewebsites.net/pubs/paxos-simple.pdf) by Leslie Lamport.
+
+## Structure
+
+### Main components
+
+- Total Order Broadcast
+- Consensus
+- Paxos
+
+### Others
+
+- Transport
+- Storage
+
+### Example
+
+- Distributed KVS
