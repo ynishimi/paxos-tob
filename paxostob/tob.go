@@ -1,6 +1,7 @@
 package paxostob
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -9,13 +10,26 @@ import (
 type consFactory func() Consensus
 
 type TotalOrderBroadcast interface {
-	Broadcast(msg Message) error
+	// todo: error handling
+	Broadcast(msg Message)
 	Deliver() <-chan DeliveredMsg
 }
 
 type DeliveredMsg struct {
-	// src     string
-	message Message
+	src string
+	msg Message
+}
+
+func (m *DeliveredMsg) Src() string {
+	return m.src
+}
+
+func (m *DeliveredMsg) Payload() string {
+	return m.msg.Payload()
+}
+
+func (m *DeliveredMsg) String() string {
+	return fmt.Sprintf("%s: %s", m.src, m.msg.String())
 }
 
 // todo: can I have infinite number of consensus?
@@ -51,9 +65,11 @@ type TobBroadcaster struct {
 }
 
 // creates new inistance of TobBroadcast
-func NewTobBroadcaster(c Consensus) *TobBroadcaster {
+func NewTobBroadcaster(transport Transport, uID uint, numPeers uint, c Consensus) *TobBroadcaster {
 	tob := &TobBroadcaster{
-
+		consFactory: func() Consensus {
+			return NewCons(transport, uID, numPeers)
+		},
 		consMap: make(map[consID]Consensus),
 
 		proposedMap: make(map[consID]Message),
@@ -158,7 +174,8 @@ func (b *TobBroadcaster) flush() {
 		// deliver msg
 		// todo: should modify consensus to attach src
 		b.deliveredChan <- DeliveredMsg{
-			message: nextDeliver,
+			src: nextDeliver.Src(),
+			msg: nextDeliver,
 		}
 	}
 }
