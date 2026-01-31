@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/ynishimi/paxos-tob/paxostob"
+	"github.com/ynishimi/paxos-tob/paxostob/testutil"
 )
 
 func TestConsensusSimple(t *testing.T) {
@@ -19,11 +20,7 @@ func TestConsensusSimple(t *testing.T) {
 	p1cons := paxostob.NewCons(p1, 1, NumPeers)
 	p2cons := paxostob.NewCons(p2, 2, NumPeers)
 
-	msg := &TestMsg{
-		src:     p1cons.GetAddress(),
-		payload: "it's p1's proposal",
-	}
-
+	msg := testutil.NewTestMsg(p1cons.GetAddress(), "it's p1's proposal")
 	fmt.Println(msg)
 
 	// send prepare msg
@@ -55,10 +52,7 @@ func TestConsensusThreeNodes(t *testing.T) {
 	p2cons := paxostob.NewCons(p2, 2, NumPeers)
 	p3cons := paxostob.NewCons(p3, 3, NumPeers)
 
-	msg := &TestMsg{
-		src:     p1cons.GetAddress(),
-		payload: "it's p1's proposal",
-	}
+	msg := testutil.NewTestMsg(p1cons.GetAddress(), "it's p1's proposal")
 
 	// send prepare msg
 	p1cons.Propose(msg)

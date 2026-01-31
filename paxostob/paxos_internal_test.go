@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/ynishimi/paxos-tob/paxostob/testutil"
 )
 
 func TestAcceptorPromiseState(t *testing.T) {
@@ -24,7 +25,7 @@ func TestAcceptorPromiseState(t *testing.T) {
 	prepMsg := &prepareMsg{
 		paxosMsg: paxosMsg{
 			src:        "peer1",
-			paxosValue: paxosValue{msgID: 5, value: "test"},
+			paxosValue: paxosValue{msgID: 5, value: testutil.NewTestMsg("peer1", "paxos value")},
 		},
 	}
 
@@ -47,7 +48,7 @@ func TestProposerPromiseCounter(t *testing.T) {
 	promMsg := &promiseMsg{
 		paxosMsg: paxosMsg{
 			src:        "imaginaryPeer1",
-			paxosValue: paxosValue{msgID: paxos.curID, value: "test"},
+			paxosValue: paxosValue{msgID: paxos.curID, value: testutil.NewTestMsg("peer1", "paxos value")},
 		},
 		acceptedValue: &acceptedValue{},
 	}

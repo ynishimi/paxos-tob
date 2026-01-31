@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ynishimi/paxos-tob/paxostob"
+	"github.com/ynishimi/paxos-tob/paxostob/testutil"
 )
 
 func TestInmemoryTransportSendSingle(t *testing.T) {
@@ -18,7 +19,7 @@ func TestInmemoryTransportSendSingle(t *testing.T) {
 	p1.AddPeer(p2)
 
 	// p1 -> p2
-	p1.Send(p2.GetAddress(), &TestMsg{p1.GetAddress(), "hi from peer1!"})
+	p1.Send(p2.GetAddress(), testutil.NewTestMsg(p1.GetAddress(), "hi from peer1"))
 
 	select {
 	case msg := <-p2.Deliver():
@@ -52,9 +53,9 @@ func TestInmemoryTransportSend(t *testing.T) {
 
 	// p1 -> p2
 	sendMsgs := []paxostob.Message{
-		&TestMsg{p1.GetAddress(), "hi"},
-		&TestMsg{p1.GetAddress(), "hi again"},
-		&TestMsg{p1.GetAddress(), "hi again XD"},
+		testutil.NewTestMsg(p1.GetAddress(), "hi"),
+		testutil.NewTestMsg(p1.GetAddress(), "hi"),
+		testutil.NewTestMsg(p1.GetAddress(), "hi"),
 	}
 
 	for _, sendMsg := range sendMsgs {
@@ -76,7 +77,7 @@ func TestInmemoryTransportBroadcastSingle(t *testing.T) {
 	p1.AddPeer(p2)
 
 	// p1 -> p2
-	p1.Broadcast(&TestMsg{p1.GetAddress(), "hi from peer1!"})
+	p1.Broadcast(testutil.NewTestMsg(p1.GetAddress(), "paxos value"))
 
 	p1DeliveredMsg := <-p1.Deliver()
 	fmt.Println(p1DeliveredMsg)

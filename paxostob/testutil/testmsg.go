@@ -1,10 +1,17 @@
-package paxostob_test
+package testutil
 
 import "fmt"
 
 type TestMsg struct {
 	src     string
 	payload string
+}
+
+func NewTestMsg(src string, payload string) *TestMsg {
+	return &TestMsg{
+		src:     src,
+		payload: payload,
+	}
 }
 
 func (m *TestMsg) Src() string {
