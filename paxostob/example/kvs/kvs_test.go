@@ -63,15 +63,21 @@ func TestKvsSinglePut(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			kvs := kvs.NewSimpleKvs(tt.tob)
 
-			kvs.Put(key1, val1)
+			// Put() returns <-chan error and notifies after TOBDeliver
+			done := kvs.Put(key1, val1)
 
-			// wait for tob to complete delivery
-			time.Sleep(10 * time.Second)
+			select {
+			case err := <-done:
+				require.Nil(t, err)
 
-			v, err := kvs.Get(key1)
-			require.NoError(t, err)
-			require.Equal(t, v, val1)
+				// check if the value is available
+				v, err := kvs.Get(key1)
+				require.NoError(t, err)
+				require.Equal(t, v, val1)
+
+			case <-time.After(10 * time.Second):
+				t.Fatal("timeout for Put()")
+			}
 		})
 	}
-
 }
