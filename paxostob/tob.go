@@ -14,26 +14,23 @@ const DeliveredChanBuf = 1000
 type consFactory func() Consensus
 
 type TotalOrderBroadcast interface {
+	GetAddress() string
 	// todo: error handling
 	Broadcast(msg Message)
 	Deliver() <-chan DeliveredMsg
 }
 
 type DeliveredMsg struct {
-	src string
-	msg Message
-}
-
-func (m *DeliveredMsg) Src() string {
-	return m.src
+	Src string
+	Msg Message
 }
 
 func (m *DeliveredMsg) Payload() []byte {
-	return m.msg.Payload()
+	return m.Msg.Payload()
 }
 
 func (m *DeliveredMsg) String() string {
-	return fmt.Sprintf("%s: %s", m.src, m.msg.String())
+	return fmt.Sprintf("%s: %s", m.Src, m.Msg.String())
 }
 
 // todo: can I have infinite number of consensus?
@@ -197,8 +194,8 @@ func (b *TobBroadcaster) flush() {
 		// todo: should modify consensus to attach src
 		log.Debug().Msgf("[%s]tobDelivered: %s", b.GetAddress(), nextDeliver)
 		b.deliveredChan <- DeliveredMsg{
-			src: nextDeliver.Src(),
-			msg: nextDeliver,
+			Src: nextDeliver.Src(),
+			Msg: nextDeliver,
 		}
 
 		b.mu.Lock()

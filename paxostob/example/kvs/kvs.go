@@ -1,24 +1,73 @@
 package kvs
 
 import (
+	"encoding/json"
+	"fmt"
 	"sync"
 
+	"github.com/rs/zerolog/log"
 	"github.com/ynishimi/paxos-tob/paxostob"
-	"github.com/ynishimi/paxos-tob/paxostob/testutil"
 )
 
-// type value interface {
-// 	serialize() paxostob.Message
-// }
+// keyValue stores key and value. it can be sent as a payload of Message
+type keyValue struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
 
-// type kvs interface {
-// 	Put(v value)
-// 	Get() value
-// }
+func (kv *keyValue) Serialize() ([]byte, error) {
+	return json.Marshal(kv)
+}
+
+func Deserialize(data []byte) (kv *keyValue, err error) {
+	err = json.Unmarshal(data, &kv)
+	return kv, err
+}
+
+func (kv *keyValue) String() string {
+	return fmt.Sprintln(kv.Key, kv.Value)
+}
+
+type kvMessage struct {
+	src    string
+	byteKv []byte
+}
+
+func (m *kvMessage) Src() string {
+	return m.src
+}
+func (m *kvMessage) Payload() []byte {
+	return m.byteKv
+}
+
+func (m *kvMessage) String() string {
+	keyValue, err := Deserialize(m.byteKv)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to deserialize")
+		return fmt.Sprintf("[src:%s] ?", m.src)
+	}
+	return fmt.Sprintf("[src:%s] %s", m.src, keyValue.String())
+}
+
+func (kvs *simpleKvs) NewKVMessage(k, v string) *kvMessage {
+	kv := keyValue{
+		Key:   k,
+		Value: v,
+	}
+	byteKv, err := kv.Serialize()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to serialize")
+	}
+	return &kvMessage{
+		src:    kvs.GetAddress(),
+		byteKv: byteKv,
+	}
+}
 
 type kvs interface {
-	Put(v string)
-	Get() string
+	GetAddress() string
+	Put(k, v string) error
+	Get(k string) (v string, err error)
 }
 
 type simpleKvs struct {
@@ -37,7 +86,14 @@ func NewSimpleKvs(tob paxostob.TotalOrderBroadcast) *simpleKvs {
 
 	go func() {
 		for deliveredMsg := range tob.Deliver() {
-			kvs.store(deliveredMsg)
+			log.Debug().Msg("delivered")
+			kv, err := Deserialize(deliveredMsg.Payload())
+			log.Debug().Msg("deserialized")
+			if err != nil {
+				log.Error().Err(err).Msg("failed to deserialize")
+			}
+			log.Debug().Str(kv.Key, kv.Value).Msg("delivered result")
+			kvs.store(*kv)
 		}
 	}()
 
@@ -45,27 +101,34 @@ func NewSimpleKvs(tob paxostob.TotalOrderBroadcast) *simpleKvs {
 
 }
 
-// func (kvs *simpleKvs) Put(v value) {
-// 	kvs.tob.Broadcast(v.serialize())
-// }
-
-func (kvs *simpleKvs) Put(v string) {
-	// todo: fix this
-	msg := testutil.NewTestMsg("me", v)
-	kvs.tob.Broadcast(msg)
+func (kvs *simpleKvs) GetAddress() string {
+	return kvs.tob.GetAddress()
 }
 
-func (kvs *simpleKvs) Get(key string) string {
+func (kvs *simpleKvs) Put(k, v string) error {
+	msg := kvs.NewKVMessage(k, v)
+	log.Debug().Str("kv", msg.String()).Msg("newKVMessage")
+	kvs.tob.Broadcast(msg)
+
+	// todo: err handling of broadcast
+	return nil
+}
+
+func (kvs *simpleKvs) Get(k string) (v string, err error) {
 	kvs.mu.RLock()
 	defer kvs.mu.RUnlock()
 
-	return kvs.storage[key]
+	v, ok := kvs.storage[k]
+	if !ok {
+		return "", fmt.Errorf("value not available for %s", k)
+	}
+
+	return v, nil
 }
 
-func (kvs *simpleKvs) store(msg paxostob.DeliveredMsg) {
+func (kvs *simpleKvs) store(kv keyValue) {
 	kvs.mu.Lock()
 	defer kvs.mu.Unlock()
 
-	kvs.storage["test"] = msg.String()
-
+	kvs.storage[kv.Key] = kv.Value
 }

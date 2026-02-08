@@ -64,7 +64,7 @@ func TestTobBroadcasterBroadcastSolo(t *testing.T) {
 			// should deliver the value
 			select {
 			case deliveredMsg := <-b.Deliver():
-				require.Equal(t, deliveredMsg.Src(), p1.GetAddress())
+				require.Equal(t, deliveredMsg.Src, p1.GetAddress())
 				require.Equal(t, deliveredMsg.Payload(), tt.msg.Payload())
 
 			case <-time.After(time.Second):
