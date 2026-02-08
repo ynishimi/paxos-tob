@@ -24,7 +24,7 @@ The algorithm of the library is based on a paper "Paxos Made Simple"(<https://la
 
 ## Usage
 
-The codebase below is an exerpt from [examples/simple/main.go](paxostob/examples/simple/main.go).
+The codebase below is an excerpt from [examples/simple/main.go](paxostob/examples/simple/main.go).
 
 ```go
 
