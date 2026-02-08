@@ -3,7 +3,11 @@ package paxostob
 import (
 	"fmt"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 )
+
+const DeliveredChanBuf = 1000
 
 // total order broadcast uses multiple instances of consensus.
 // consFactory defines the general function to create a network.
@@ -49,7 +53,7 @@ type TobBroadcaster struct {
 	// stores broadcasted msgs
 	proposedMap map[consID]Message
 
-	curConsID consID
+	nextConsID consID
 	// for total order property, the peer should only deliver the  ID next to it
 	lastDeliveredID lastDeliveredID
 
@@ -61,28 +65,38 @@ type TobBroadcaster struct {
 	// channel for sending delivered msgs to upper layer
 	deliveredChan chan DeliveredMsg
 
+	addr string
+
 	mu sync.RWMutex
 }
 
+func (b *TobBroadcaster) GetAddress() string {
+	return b.addr
+}
+
 // creates new inistance of TobBroadcast
-func NewTobBroadcaster(transport Transport, uID uint, numPeers uint, c Consensus) *TobBroadcaster {
+func NewTobBroadcaster(addr string, factory func() Consensus) *TobBroadcaster {
 	tob := &TobBroadcaster{
-		consFactory: func() Consensus {
-			return NewCons(transport, uID, numPeers)
-		},
-		consMap: make(map[consID]Consensus),
+		consFactory: factory,
+		consMap:     make(map[consID]Consensus),
 
 		proposedMap: make(map[consID]Message),
 
 		// starts with 1
-		curConsID:       1,
+		nextConsID:      1,
 		lastDeliveredID: 0,
 
 		decidedMap:  make(map[consID]Message),
 		decidedChan: make(chan decision),
 
-		deliveredChan: make(chan DeliveredMsg),
+		deliveredChan: make(chan DeliveredMsg, DeliveredChanBuf),
+
+		addr: addr,
 	}
+
+	// // eagerly create consensus for round 1 so this peer can participate
+	// // even if it doesn't broadcast first
+	// tob.getOrCreateCons(1)
 
 	// recv decided msgs from consensus layer
 	go func() {
@@ -92,6 +106,27 @@ func NewTobBroadcaster(transport Transport, uID uint, numPeers uint, c Consensus
 	}()
 
 	return tob
+}
+
+// assume mutex upon using this function
+func (b *TobBroadcaster) getOrCreateCons(id consID) Consensus {
+	// returns cons if it already exists
+	if cons, ok := b.consMap[id]; ok {
+		return cons
+	}
+
+	// if the cons doesn't exist, create a new one and wait for decision
+	cons := b.consFactory()
+	b.consMap[id] = cons
+
+	go func(id consID, c Consensus) {
+		b.decidedChan <- decision{
+			consID: id,
+			msg:    <-c.Decide(),
+		}
+	}(id, cons)
+
+	return cons
 }
 
 func (b *TobBroadcaster) Broadcast(msg Message) {
@@ -107,75 +142,67 @@ func (b *TobBroadcaster) Deliver() <-chan DeliveredMsg {
 func (b *TobBroadcaster) propose(msg Message) {
 	b.mu.Lock()
 
-	// on each round of consensus, peers propose its head.
-	// todo: remember the proposed values?
-
-	cons := b.consFactory()
-	curConsID := b.curConsID
-	b.consMap[curConsID] = cons
+	curConsID := b.nextConsID
+	cons := b.getOrCreateCons(curConsID)
 
 	// register a proposal
 	b.proposedMap[curConsID] = msg
 
-	b.curConsID++
+	b.nextConsID++
 
 	b.mu.Unlock()
 
-	go func(curConsID consID, cons Consensus) {
-		cons.Propose(msg)
+	go cons.Propose(msg)
 
-		// wait for the deliver on consensus layer
-
-		b.decidedChan <- decision{
-			consID: curConsID,
-			msg:    <-cons.Decide(),
-		}
-
-	}(curConsID, cons)
 }
 
 // handle decided msg (reorder and deliver in order, based on consID)
 func (b *TobBroadcaster) handleDecide(decision decision) {
 
 	b.mu.Lock()
-
 	// set the decision to decidedMap
 	b.decidedMap[decision.consID] = decision.msg
 
 	proposal := b.proposedMap[decision.consID]
+
+	// non-proposers create a new instance of consensus
+	b.getOrCreateCons(decision.consID + 1)
 	b.mu.Unlock()
 
 	// try to deliver msgs
 	b.flush()
 
-	// if the head of the queue was found to be decided, remove the element from the queue.
 	// if the decided message was proposed by myself and not nil, propose it again with newer consID.
 	if (proposal != decision.msg) && (proposal != nil) {
 		// my proposal was rejected; propose again as a new proposal
+		log.Debug().Msgf("my msg rejected; proposing again: %s", decision.msg)
 		b.propose(decision.msg)
 	}
 }
 
-// upon broadcasting, the message is sent to a fifo queue (or sent immediately, prob using channels?).
+// try to deliver msgs already decided in consensus layer in total order
 func (b *TobBroadcaster) flush() {
-	// flush all the decisions
-	for b.curConsID != consID(b.lastDeliveredID) {
-
+	for {
 		// upon getting decided value, checks the consID and the deliver it if it's next to lastDeliveredID. e.g., if lastDeliveredID is 5, a decision is accepted iff decision.consID is 6.
-
-		// todo: repeatedly access consID(b.lastDeliveredID)+1
 		b.mu.RLock()
+		// repeatedly access consID(b.lastDeliveredID)+1
 		nextDeliver := b.decidedMap[consID(b.lastDeliveredID)+1]
 		b.mu.RUnlock()
+
 		if nextDeliver == nil {
 			return
 		}
 
 		// deliver msg
 		// todo: should modify consensus to attach src
+		log.Debug().Msgf("[%s]tobDelivered: %s", b.GetAddress(), nextDeliver)
 		b.deliveredChan <- DeliveredMsg{
 			src: nextDeliver.Src(),
 			msg: nextDeliver,
 		}
+
+		b.mu.Lock()
+		b.lastDeliveredID++
+		b.mu.Unlock()
 	}
 }
