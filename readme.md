@@ -1,16 +1,13 @@
 # `paxos-tob`
 
-## What's Paxos / Total Order Broadcast(TOB)?
+[![Go Reference](https://pkg.go.dev/badge/github.com/ynishimi/paxos-tob.svg)](https://pkg.go.dev/github.com/ynishimi/paxos-tob)
 
-<!-- About Paxos -->
 Paxos algorithm is one of the implementations of a uniform consensus.
 Paxos does not require a Best-Effort Broadcast(beb), which means that the algorithm works in the environment where the packets can drop or delayed.
 
 While Paxos is similar to Raft, which is also used for replicating a state machine in a distributed environment, Paxos does not require a leader, making everyone in the distributed system propose its value.
 
 The algorithm of the library is based on a paper "Paxos Made Simple"(<https://lamport.azurewebsites.net/pubs/paxos-simple.pdf>) by Leslie Lamport.
-
-<!-- About TOB -->
 
 ## Structure
 
@@ -26,6 +23,8 @@ The algorithm of the library is based on a paper "Paxos Made Simple"(<https://la
 - No persistent storage.
 
 ## Usage
+
+The codebase below is an exerpt from [examples/simple/main.go](paxostob/examples/simple/main.go).
 
 ```go
 
@@ -78,8 +77,4 @@ func main() {
 
 ## Example
 
-See [examples/kvs](examples/kvs) for a distributed key-value store implementation.
-
-## About this work
-
-This project was inspired by lectures at EPFL (CS-438 and CS-451).
+See [examples/kvs](paxostob/examples/kvs) for a distributed key-value store implementation.
