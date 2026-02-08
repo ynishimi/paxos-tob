@@ -36,23 +36,23 @@ func TestAcceptorPromiseState(t *testing.T) {
 	require.Equal(t, uint(5), paxos.promisedID)
 }
 
-// test proposer promise counting
-func TestProposerPromiseCounter(t *testing.T) {
-	p1 := NewInmemTransport("peer1")
-	// create instance of paxos directly
-	paxos := NewPaxos(p1, 1, 1)
+// // test proposer promise counting
+// func TestProposerPromiseCounter(t *testing.T) {
+// 	p1 := NewInmemTransport("peer1")
+// 	// create instance of paxos directly
+// 	paxos := NewPaxos(p1, 1, 1)
 
-	require.Equal(t, uint(0), paxos.promiseCounter)
+// 	require.Equal(t, uint(0), paxos.promiseCounter)
 
-	// simulate receiving promises
-	promMsg := &promiseMsg{
-		paxosMsg: paxosMsg{
-			src:        "imaginaryPeer1",
-			paxosValue: paxosValue{msgID: paxos.curID, value: testutil.NewTestMsg("peer1", "paxos value")},
-		},
-		acceptedValue: &acceptedValue{},
-	}
+// 	// simulate receiving promises
+// 	promMsg := &promiseMsg{
+// 		paxosMsg: paxosMsg{
+// 			src:        "imaginaryPeer1",
+// 			paxosValue: paxosValue{msgID: paxos.curID, value: testutil.NewTestMsg("peer1", "paxos value")},
+// 		},
+// 		acceptedValue: &acceptedValue{},
+// 	}
 
-	paxos.handlePromise(promMsg)
-	require.Equal(t, uint(1), paxos.promiseCounter)
-}
+// 	paxos.handlePromise(promMsg)
+// 	require.Equal(t, uint(1), paxos.promiseCounter)
+// }

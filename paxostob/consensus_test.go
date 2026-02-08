@@ -3,11 +3,34 @@ package paxostob_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/ynishimi/paxos-tob/paxostob"
 	"github.com/ynishimi/paxos-tob/paxostob/testutil"
 )
+
+func TestConsensusSolo(t *testing.T) {
+	p1 := paxostob.NewInmemTransport("peer1")
+
+	const NumPeers = 1
+
+	p1cons := paxostob.NewCons(p1, 1, NumPeers)
+
+	msg := testutil.NewTestMsg(p1cons.GetAddress(), "it's p1's proposal")
+	fmt.Println(msg)
+
+	// send prepare msg
+	p1cons.Propose(msg)
+
+	select {
+	case decidedMsg := <-p1cons.Decide():
+		require.Equal(t, decidedMsg.Payload(), msg.Payload())
+
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for message delivery")
+	}
+}
 
 func TestConsensusSimple(t *testing.T) {
 	p1 := paxostob.NewInmemTransport("peer1")
@@ -26,10 +49,24 @@ func TestConsensusSimple(t *testing.T) {
 	// send prepare msg
 	p1cons.Propose(msg)
 
-	d1 := <-p1cons.Decide()
-	fmt.Println(d1)
-	d2 := <-p2cons.Decide()
-	fmt.Println(d2)
+	var d1 paxostob.Message
+	var d2 paxostob.Message
+
+	select {
+	case d1 = <-p1cons.Decide():
+		fmt.Println(d1)
+
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for message delivery (d1)")
+	}
+
+	select {
+	case d2 = <-p2cons.Decide():
+		fmt.Println(d2)
+
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for message delivery (d2)")
+	}
 
 	require.Equal(t, d1, d2)
 }
