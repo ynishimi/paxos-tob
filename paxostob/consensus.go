@@ -173,9 +173,9 @@ func NewPaxos(transport Transport, uID uint, numPeers uint) *Paxos {
 		// proposingValue: "",
 		promiseCounter: 0,
 
-		prepareTimeout:  3 * time.Second,
+		prepareTimeout:  time.Second,
 		prepareApproved: make(chan struct{}),
-		proposeTimeout:  3 * time.Second,
+		proposeTimeout:  time.Second,
 		proposeApproved: make(chan paxosValue, 1),
 
 		promisedID:    0,

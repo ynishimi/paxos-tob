@@ -56,7 +56,7 @@ func TestConsensusSimple(t *testing.T) {
 	case d1 = <-p1cons.Decide():
 		fmt.Println(d1)
 
-	case <-time.After(5 * time.Second):
+	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for message delivery (d1)")
 	}
 
@@ -64,7 +64,7 @@ func TestConsensusSimple(t *testing.T) {
 	case d2 = <-p2cons.Decide():
 		fmt.Println(d2)
 
-	case <-time.After(5 * time.Second):
+	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for message delivery (d2)")
 	}
 
