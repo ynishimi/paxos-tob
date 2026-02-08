@@ -137,7 +137,7 @@ type paxosMsg struct {
 func (m *paxosMsg) Src() string {
 	return m.src
 }
-func (m *paxosMsg) Payload() string {
+func (m *paxosMsg) Payload() []byte {
 	return m.paxosValue.value.Payload()
 }
 

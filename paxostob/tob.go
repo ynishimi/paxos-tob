@@ -28,7 +28,7 @@ func (m *DeliveredMsg) Src() string {
 	return m.src
 }
 
-func (m *DeliveredMsg) Payload() string {
+func (m *DeliveredMsg) Payload() []byte {
 	return m.msg.Payload()
 }
 

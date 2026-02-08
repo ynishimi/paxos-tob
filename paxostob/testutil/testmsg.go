@@ -18,8 +18,8 @@ func (m *TestMsg) Src() string {
 	return m.src
 }
 
-func (m *TestMsg) Payload() string {
-	return m.payload
+func (m *TestMsg) Payload() []byte {
+	return []byte(m.payload)
 }
 
 func (m *TestMsg) String() string {

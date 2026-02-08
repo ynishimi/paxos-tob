@@ -2,7 +2,7 @@ package paxostob
 
 type Message interface {
 	Src() string
-	Payload() string
+	Payload() []byte
 	String() string
 }
 
