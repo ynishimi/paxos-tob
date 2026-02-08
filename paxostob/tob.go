@@ -91,9 +91,10 @@ func NewTobBroadcaster(addr string, factory func() Consensus) *TobBroadcaster {
 		addr: addr,
 	}
 
-	// // eagerly create consensus for round 1 so this peer can participate
-	// // even if it doesn't broadcast first
-	// tob.getOrCreateCons(1)
+	// eagerly create consensus for round 1 so this peer can participate
+	// even if it doesn't broadcast first.
+	// todo: add consensus round info so that it can handle multiple instances of consensus at the same time
+	tob.getOrCreateCons(1)
 
 	// recv decided msgs from consensus layer
 	go func() {

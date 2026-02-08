@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/ynishimi/paxos-tob/paxostob"
-	"github.com/ynishimi/paxos-tob/paxostob/example/kvs"
+	"github.com/ynishimi/paxos-tob/paxostob/examples/kvs"
 )
 
 // mockTob

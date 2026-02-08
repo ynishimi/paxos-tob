@@ -1,16 +1,33 @@
 package paxostob
 
+import "fmt"
+
 type Message interface {
 	Src() string
 	Payload() []byte
 	String() string
 }
 
-// type SimpleMsg struct {
-// 	src     string
-// 	payload string
-// }
+type SimepleMsg struct {
+	src     string
+	payload string
+}
 
-// func (m *SimpleMsg) String() string {
-// 	return fmt.Sprint(m.src, m.payload)
-// }
+func NewSimpleMsg(src string, payload string) *SimepleMsg {
+	return &SimepleMsg{
+		src:     src,
+		payload: payload,
+	}
+}
+
+func (m *SimepleMsg) Src() string {
+	return m.src
+}
+
+func (m *SimepleMsg) Payload() []byte {
+	return []byte(m.payload)
+}
+
+func (m *SimepleMsg) String() string {
+	return fmt.Sprintf("%s: %s", m.src, m.payload)
+}
