@@ -10,77 +10,109 @@ import (
 	"github.com/ynishimi/paxos-tob/paxostob/testutil"
 )
 
+// Sends a message from p1 to p2.
 func TestInmemoryTransportSendSingle(t *testing.T) {
+	t.Run("inmem", func(t *testing.T) {
+		p1 := paxostob.NewInmemTransport("peer1")
+		p2 := paxostob.NewInmemTransport("peer2")
+		p1.AddPeer(p2)
 
-	p1 := paxostob.NewInmemTransport("peer1")
-	p2 := paxostob.NewInmemTransport("peer2")
+		p1.Send(p2.GetAddress(), testutil.NewTestMsg(p1.GetAddress(), "hi from peer1"))
 
-	// let them know each other
-	p1.AddPeer(p2)
-
-	// p1 -> p2
-	p1.Send(p2.GetAddress(), testutil.NewTestMsg(p1.GetAddress(), "hi from peer1"))
-
-	select {
-	case msg := <-p2.Deliver():
-		// success
-		fmt.Print(msg)
-
-	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for message delivery")
-	}
-}
-
-func TestInmemoryTransportSend(t *testing.T) {
-
-	p1 := paxostob.NewInmemTransport("peer1")
-	p2 := paxostob.NewInmemTransport("peer2")
-
-	// let them know each other
-	p1.AddPeer(p2)
-
-	// let p2 wait for messages
-	msgs := make([]paxostob.Message, 0)
-
-	go func() {
-		for {
-			// print msg upon receiving it
-			msg := <-p2.Deliver()
-			fmt.Println(msg)
-			msgs = append(msgs, msg)
+		select {
+		case msg := <-p2.Deliver():
+			fmt.Print(msg)
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for message delivery")
 		}
-	}()
+	})
 
-	// p1 -> p2
-	sendMsgs := []paxostob.Message{
-		testutil.NewTestMsg(p1.GetAddress(), "hi"),
-		testutil.NewTestMsg(p1.GetAddress(), "hi"),
-		testutil.NewTestMsg(p1.GetAddress(), "hi"),
-	}
+	// checks if the lossy transport works in a happy path
+	t.Run("lossy", func(t *testing.T) {
+		lossRate := 0.0
+		delay := time.Duration(0)
+		p1 := paxostob.NewLossyTransport("peer1", lossRate, delay)
+		p2 := paxostob.NewLossyTransport("peer2", lossRate, delay)
+		p1.AddPeer(p2)
 
-	for _, sendMsg := range sendMsgs {
-		p1.Send(p2.GetAddress(), sendMsg)
-	}
+		p1.Send(p2.GetAddress(), testutil.NewTestMsg(p1.GetAddress(), "hi from peer1"))
 
-	time.Sleep(time.Second)
-	if !reflect.DeepEqual(sendMsgs, msgs) {
-		t.Error("msgs list not equal")
-	}
+		select {
+		case msg := <-p2.Deliver():
+			fmt.Print(msg)
+		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for message delivery")
+		}
+	})
 }
 
-// todo: broadcast
+// Sends three messages from p1 to p2.
+func TestInmemoryTransportSendThree(t *testing.T) {
+	sendThree := func(t *testing.T, p1Send func(string, paxostob.Message) error, p1Addr string, p2Deliver <-chan paxostob.Message) {
+		t.Helper()
+		msgs := make([]paxostob.Message, 0)
+
+		go func() {
+			for {
+				msg := <-p2Deliver
+				fmt.Println(msg)
+				msgs = append(msgs, msg)
+			}
+		}()
+
+		sendMsgs := []paxostob.Message{
+			testutil.NewTestMsg(p1Addr, "hi"),
+			testutil.NewTestMsg(p1Addr, "hi"),
+			testutil.NewTestMsg(p1Addr, "hi"),
+		}
+
+		for _, sendMsg := range sendMsgs {
+			p1Send("peer2", sendMsg)
+		}
+
+		time.Sleep(time.Second)
+		if !reflect.DeepEqual(sendMsgs, msgs) {
+			t.Error("msgs list not equal")
+		}
+	}
+
+	t.Run("inmem", func(t *testing.T) {
+		p1 := paxostob.NewInmemTransport("peer1")
+		p2 := paxostob.NewInmemTransport("peer2")
+		p1.AddPeer(p2)
+		sendThree(t, p1.Send, p1.GetAddress(), p2.Deliver())
+	})
+
+	t.Run("lossy", func(t *testing.T) {
+		p1 := paxostob.NewLossyTransport("peer1", 0.0, 0)
+		p2 := paxostob.NewLossyTransport("peer2", 0.0, 0)
+		p1.AddPeer(p2)
+		sendThree(t, p1.Send, p1.GetAddress(), p2.Deliver())
+	})
+}
+
 func TestInmemoryTransportBroadcastSingle(t *testing.T) {
-	p1 := paxostob.NewInmemTransport("peer1")
-	p2 := paxostob.NewInmemTransport("peer2")
+	broadcastSingle := func(t *testing.T, broadcast func(paxostob.Message) error, addr string, p1Deliver, p2Deliver <-chan paxostob.Message) {
+		t.Helper()
+		broadcast(testutil.NewTestMsg(addr, "broadcast value"))
 
-	// let them know each other
-	p1.AddPeer(p2)
+		p1DeliveredMsg := <-p1Deliver
+		fmt.Println(p1DeliveredMsg)
+		p2DeliveredMsg := <-p2Deliver
+		fmt.Println(p2DeliveredMsg)
+	}
 
-	// p1 -> p2
-	p1.Broadcast(testutil.NewTestMsg(p1.GetAddress(), "paxos value"))
+	t.Run("inmem", func(t *testing.T) {
+		p1 := paxostob.NewInmemTransport("peer1")
+		p2 := paxostob.NewInmemTransport("peer2")
+		p1.AddPeer(p2)
+		broadcastSingle(t, p1.Broadcast, p1.GetAddress(), p1.Deliver(), p2.Deliver())
+	})
 
-	p1DeliveredMsg := <-p1.Deliver()
-	fmt.Println(p1DeliveredMsg)
-	p2DeliveredMsg := <-p2.Deliver()
-	fmt.Println(p2DeliveredMsg)
+	t.Run("lossy", func(t *testing.T) {
+		p1 := paxostob.NewLossyTransport("peer1", 0.0, 0)
+		p2 := paxostob.NewLossyTransport("peer2", 0.0, 0)
+		p1.AddPeer(p2)
+		broadcastSingle(t, p1.Broadcast, p1.GetAddress(), p1.Deliver(), p2.Deliver())
+	})
 }

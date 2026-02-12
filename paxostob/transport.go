@@ -2,7 +2,11 @@ package paxostob
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Transport interface {
@@ -73,4 +77,73 @@ func (t *InmemoryTransport) Deliver() <-chan Message {
 
 func (t *InmemoryTransport) GetAddress() string {
 	return t.addr
+}
+
+type LossyTransport struct {
+	InmemoryTransport
+	lossRate float64
+	delay    time.Duration
+	// reordering bool
+}
+
+func NewLossyTransport(addr string, lossRate float64, delay time.Duration) *LossyTransport {
+	return &LossyTransport{
+		InmemoryTransport: *NewInmemTransport(addr),
+		lossRate:          lossRate,
+		delay:             delay,
+		// reordering:        reordering,
+	}
+}
+
+func (t *LossyTransport) AddPeer(newPeer *LossyTransport) {
+	t.InmemoryTransport.AddPeer(&newPeer.InmemoryTransport)
+}
+
+func (t *LossyTransport) Send(dest string, message Message) error {
+	// drops based on lossRate
+	if rand.Float64() < t.lossRate {
+		log.Debug().Msg("dropped: rand.Float64() < t.lossRate")
+		return nil
+	}
+
+	if t.delay > 0 {
+		time.Sleep(t.delay)
+	}
+
+	return t.InmemoryTransport.Send(dest, message)
+}
+
+func (t *LossyTransport) Broadcast(message Message) error {
+	t.InmemoryTransport.mu.RLock()
+	defer t.InmemoryTransport.mu.RUnlock()
+
+	// assumption: all nodes are in the map
+sendLoop:
+	for _, destTransport := range t.InmemoryTransport.peers {
+		// drops based on lossRate
+		if rand.Float64() < t.lossRate {
+			log.Debug().Msg("dropped: rand.Float64() < t.lossRate")
+			continue sendLoop
+		}
+
+		if t.delay > 0 {
+			time.Sleep(t.delay)
+		}
+
+		destTransport.incomingMsgChan <- message
+	}
+
+	// send to yourself
+	// loss should not be applied to itself
+	t.InmemoryTransport.incomingMsgChan <- message
+
+	return nil
+}
+
+func (t *LossyTransport) Deliver() <-chan Message {
+	return t.InmemoryTransport.Deliver()
+}
+
+func (t *LossyTransport) GetAddress() string {
+	return t.InmemoryTransport.GetAddress()
 }
